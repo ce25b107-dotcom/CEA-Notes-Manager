@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Notes - CEA Notes Manager</title>
+</head>
+<body>
+
+    <h1>My Notes</h1>
+
+    <button id="logoutButton">Logout</button>
+
+    <h2>Add Note</h2>
+
+    <form id="noteForm">
+        <input type="text" id="title" placeholder="Note title" required>
+        <textarea id="content" placeholder="Write your note..." required></textarea>
+        <button type="submit">Add Note</button>
+    </form>
+
+    <p id="message"></p>
+
+    <h2>Saved Notes</h2>
+
+    <div id="notesContainer"></div>
+
+    <script>
+        const token = localStorage.getItem("token");
+        const form = document.getElementById("noteForm");
+        const message = document.getElementById("message");
+        const notesContainer = document.getElementById("notesContainer");
+        const logoutButton = document.getElementById("logoutButton");
+
+        if (!token) {
+            window.location.href = "login.html";
+        }
+
+        async function loadNotes() {
+            const response = await fetch("/api/notes", {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "login.html";
+                return;
+            }
+
+            const notes = await response.json();
+
+            notesContainer.innerHTML = "";
+
+            notes.forEach(note => {
+                const noteElement = document.createElement("div");
+
+                noteElement.innerHTML = `
+                    <h3>${note.title}</h3>
+                    <p>${note.content}</p>
+                    <button onclick="editNote('${note._id}', '${note.title.replace(/'/g, "\\'")}', '${note.content.replace(/'/g, "\\'")}')">Edit</button>
+                    <button onclick="deleteNote('${note._id}')">Delete</button>
+                    <hr>
+                `;
+
+                notesContainer.appendChild(noteElement);
+            });
+        }
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const title = document.getElementById("title").value;
+            const content = document.getElementById("content").value;
+
+            const response = await fetch("/api/notes", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    title,
+                    content
+                })
+            });
+
+            const data = await response.json();
+
+            message.textContent = data.message || "Note added";
+
+            if (response.ok) {
+                form.reset();
+                loadNotes();
+            }
+        });
+
+        async function deleteNote(id) {
+            const response = await fetch(`/api/notes/${id}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+
+            message.textContent = data.message;
+
+            if (response.ok) {
+                loadNotes();
+            }
+        }
+
+        async function editNote(id, oldTitle, oldContent) {
+            const title = prompt("Enter new title:", oldTitle);
+            const content = prompt("Enter new content:", oldContent);
+
+            if (title === null || content === null) {
+                return;
+            }
+
+            const response = await fetch(`/api/notes/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    title,
+                    content
+                })
+            });
+
+            const data = await response.json();
+
+            message.textContent = response.ok ? "Note updated" : data.message;
+
+            if (response.ok) {
+                loadNotes();
+            }
+        }
+
+        logoutButton.addEventListener("click", () => {
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+        });
+
+        loadNotes();
+    </script>
+
+</body>
+</html>
