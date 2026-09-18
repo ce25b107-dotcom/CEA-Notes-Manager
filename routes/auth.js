@@ -5,7 +5,7 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-const JWT_SECRET = "cea_notes_secret";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post("/signup", async (req, res) => {
     try {
